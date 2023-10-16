@@ -38,11 +38,13 @@ import (
 type TargetOption struct {
 	Host      string
 	User      string
-	Volume    string
+	Volume    string // use it to create or delete
 	Create    bool
 	Size      int
 	Tid       string
 	Blocksize uint64
+	CacheSize uint64
+	Spdk      bool
 }
 
 func NewAddTargetTask(curveadm *cli.CurveAdm, cc *configure.ClientConfig) (*task.Task, error) {
@@ -59,9 +61,18 @@ func NewAddTargetTask(curveadm *cli.CurveAdm, cc *configure.ClientConfig) (*task
 	// add step
 	var output string
 	containerId := DEFAULT_TGTD_CONTAINER_NAME
-	targetScriptPath := "/curvebs/tools/sbin/target.sh"
+	targetScriptPath := "/curvebs/tools/sbin/add_spdk_target.sh"
 	targetScript := scripts.TARGET
-	cmd := fmt.Sprintf("/bin/bash %s %s %s %v %d %d", targetScriptPath, user, volume, options.Create, options.Size, options.Blocksize)
+	cmd := fmt.Sprintf("bash %s %s %s %v %d %d %d %v %s",
+		targetScriptPath,
+		user,
+		volume,
+		options.Create,
+		options.Size,
+		options.Blocksize,
+		options.CacheSize,
+		options.Spdk,
+		hc.GetHostname())
 	toolsConf := fmt.Sprintf(FORMAT_TOOLS_CONF, cc.GetClusterMDSAddr())
 
 	t.AddStep(&step.ListContainers{

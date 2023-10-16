@@ -268,6 +268,9 @@ var (
 	ERR_VOLUME_BLOCKSIZE_MUST_END_WITH_BYTE_SUFFIX = EC(201009, "volume block size must end with \"B\" suffix")
 	ERR_VOLUME_BLOCKSIZE_REQUIRES_POSITIVE_INTEGER = EC(221010, "volume block size requires a positive integer")
 	ERR_VOLUME_BLOCKSIZE_BE_MULTIPLE_OF_512        = EC(221011, "volume block size be a multiple of 512B, like 1KiB, 2KiB, 3KiB...")
+	ERR_VOLUME_CACHESIZE_REQUIRES_POSITIVE_INTEGER = EC(221012, "volume cache size requires a positive integer")
+	ERR_VOLUME_CACHESIZE_BE_MULTIPLE_OF_512        = EC(221013, "volume cache size be a multiple of 512B, like 1KiB, 2KiB, 3KiB...")
+
 	// 222: command options (client/fs)
 	ERR_FS_MOUNTPOINT_REQUIRE_ABSOLUTE_PATH = EC(222000, "mount point must be an absolute path")
 
@@ -428,6 +431,8 @@ var (
 	ERR_UNMAP_VOLUME_FAILED               = EC(420006, "unmap volume failed")
 	ERR_OLD_TARGET_DAEMON_IS_ABNORMAL     = EC(420007, "old target daemon is abnormal")
 	ERR_TARGET_DAEMON_IS_ABNORMAL         = EC(420008, "target daemon is abnormal")
+	ERR_SPDK_TARGET_DEVNO_IS_ABNORMAL     = EC(420009, "spdk target devno is abnormal")
+	ERR_SPDK_TARGET_DEVNAME_IS_ABNORMAL   = EC(420010, "spdk target without block dev")
 
 	// 430: common (curvefs client)
 	ERR_FS_PATH_ALREADY_MOUNTED  = EC(430000, "path already mounted")

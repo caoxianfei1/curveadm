@@ -31,6 +31,7 @@ import (
 	client "github.com/opencurve/curveadm/internal/configure"
 	"github.com/opencurve/curveadm/internal/errno"
 	"github.com/opencurve/curveadm/internal/task/context"
+	"github.com/opencurve/curveadm/internal/task/scripts"
 	"github.com/opencurve/curveadm/internal/task/step"
 	"github.com/opencurve/curveadm/internal/task/task"
 )
@@ -60,6 +61,12 @@ func NewDeleteTargetTask(curveadm *cli.CurveAdm, cc *client.ClientConfig) (*task
 	subname := fmt.Sprintf("hostname=%s tid=%s", hc.GetHostname(), options.Tid)
 	t := task.NewTask("Delete Target", subname, hc.GetSSHConfig())
 
+	targetScript := scripts.DELETE_SPDK_TARGET
+	targetScriptPath := "/curvebs/tools/sbin/delete_spdk_target.sh"
+	cmd := fmt.Sprintf("bash %s %s",
+		targetScriptPath,
+		options.Volume,
+	)
 	// add step
 	var output string
 	containerId := DEFAULT_TGTD_CONTAINER_NAME
@@ -75,29 +82,43 @@ func NewDeleteTargetTask(curveadm *cli.CurveAdm, cc *client.ClientConfig) (*task
 	t.AddStep(&step2CheckTgtdStatus{
 		output: &output,
 	})
-	t.AddStep(&step.ContainerExec{
-		ContainerId: &containerId,
-		Command:     fmt.Sprintf("tgtadm --lld iscsi --mode target --op show"),
-		Out:         &output,
-		ExecOptions: curveadm.ExecOptions(),
-	})
-	t.AddStep(&step2FormatTarget{
-		host:       options.Host,
-		hostname:   hc.GetHostname(),
-		output:     &output,
-		memStorage: curveadm.MemStorage(),
-	})
-	t.AddStep(&step.DelDaemonTask{
-		ContainerId: &containerId,
-		Tid:         tid,
-		MemStorage:  curveadm.MemStorage(),
-		ExecOptions: curveadm.ExecOptions(),
-	})
-	t.AddStep(&step.ContainerExec{
-		ContainerId: &containerId,
-		Command:     fmt.Sprintf("tgtadm --lld iscsi --mode target --op delete --tid %s", tid),
-		ExecOptions: curveadm.ExecOptions(),
-	})
+	if options.Spdk {
+		t.AddStep(&step.InstallFile{ // install delete_spdk_target.sh
+			Content:           &targetScript,
+			ContainerId:       &containerId,
+			ContainerDestPath: targetScriptPath,
+			ExecOptions:       curveadm.ExecOptions(),
+		})
+		t.AddStep(&step.ContainerExec{
+			ContainerId: &containerId,
+			Command:     cmd,
+			ExecOptions: curveadm.ExecOptions(),
+		})
+	} else {
+		t.AddStep(&step.ContainerExec{
+			ContainerId: &containerId,
+			Command:     "tgtadm --lld iscsi --mode target --op show",
+			Out:         &output,
+			ExecOptions: curveadm.ExecOptions(),
+		})
+		t.AddStep(&step2FormatTarget{
+			host:       options.Host,
+			hostname:   hc.GetHostname(),
+			output:     &output,
+			memStorage: curveadm.MemStorage(),
+		})
+		t.AddStep(&step.DelDaemonTask{
+			ContainerId: &containerId,
+			Tid:         tid,
+			MemStorage:  curveadm.MemStorage(),
+			ExecOptions: curveadm.ExecOptions(),
+		})
+		t.AddStep(&step.ContainerExec{
+			ContainerId: &containerId,
+			Command:     fmt.Sprintf("tgtadm --lld iscsi --mode target --op delete --tid %s", tid),
+			ExecOptions: curveadm.ExecOptions(),
+		})
+	}
 
 	return t, nil
 }

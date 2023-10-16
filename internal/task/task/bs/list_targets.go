@@ -1,23 +1,23 @@
 /*
- *  Copyright (c) 2021 NetEase Inc.
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+*  Copyright (c) 2021 NetEase Inc.
+*
+*  Licensed under the Apache License, Version 2.0 (the "License");
+*  you may not use this file except in compliance with the License.
+*  You may obtain a copy of the License at
+*
+*      http://www.apache.org/licenses/LICENSE-2.0
+*
+*  Unless required by applicable law or agreed to in writing, software
+*  distributed under the License is distributed on an "AS IS" BASIS,
+*  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+*  See the License for the specific language governing permissions and
+*  limitations under the License.
  */
 
 /*
- * Project: CurveAdm
- * Created Date: 2022-02-09
- * Author: Jingli Chen (Wine93)
+* Project: CurveAdm
+* Created Date: 2022-02-09
+* Author: Jingli Chen (Wine93)
  */
 
 package bs
@@ -29,6 +29,7 @@ import (
 
 	"github.com/opencurve/curveadm/cli/cli"
 	comm "github.com/opencurve/curveadm/internal/common"
+	"github.com/opencurve/curveadm/internal/errno"
 	"github.com/opencurve/curveadm/internal/task/context"
 	"github.com/opencurve/curveadm/internal/task/step"
 	"github.com/opencurve/curveadm/internal/task/task"
@@ -43,6 +44,7 @@ type (
 	step2FormatTarget struct {
 		host       string
 		hostname   string
+		spdk       bool
 		output     *string
 		memStorage *utils.SafeMap
 	}
@@ -65,41 +67,75 @@ func addTarget(memStorage *utils.SafeMap, id string, target *step.Target) {
 Output Example:
 Target 3: iqn.2022-02.com.opencurve:curve.wine93/test03
 
-	...
-	LUN information:
-	    LUN: 0
-	        ...
-	    LUN: 1
-	        ...
-	        Backing store path: cbd:pool//test03_wine93_
+...
+LUN information:
+LUN: 0
+...
+LUN: 1
+...
+Backing store path: cbd:pool//test03_wine93_
+
+Spdk Output Example:
+10.0.0.1:3260,1 iqn.2016-06.io.spdk:test1
+10.0.0.1:3260,1 iqn.2016-06.io.spdk:test2
 */
 func (s *step2FormatTarget) Execute(ctx *context.Context) error {
 	output := *s.output
 	lines := strings.Split(output, "\n")
-
 	var target *step.Target
-	titlePattern := regexp.MustCompile("^Target ([0-9]+): (.+)$")
-	storePattern := regexp.MustCompile("Backing store path: (cbd:pool//.+)$")
-	for _, line := range lines {
-		mu := titlePattern.FindStringSubmatch(line)
-		if len(mu) > 0 {
+	if s.spdk {
+		for i, line := range lines {
+			tgts := strings.Split(line, ",")
+			if len(tgts) < 2 {
+				return fmt.Errorf("iscsiadm discovery return incorrect format")
+			}
+
+			name_volume := strings.Split(tgts[1], ":")
 			target = &step.Target{
 				Host:   s.host,
-				Tid:    mu[1],
-				Name:   mu[2],
-				Store:  "-",
+				Tid:    fmt.Sprintf("%d", i+1),
+				Name:   name_volume[0],
+				Store:  name_volume[1],
 				Portal: fmt.Sprintf("%s:%d", s.hostname, DEFAULT_TGTD_LISTEN_PORT),
 			}
-			addTarget(s.memStorage, mu[1], target)
-			continue
+			addTarget(s.memStorage, target.Tid, target)
 		}
+	} else {
+		titlePattern := regexp.MustCompile("^Target ([0-9]+): (.+)$")
+		storePattern := regexp.MustCompile("Backing store path: (cbd:pool//.+)$")
+		for _, line := range lines {
+			mu := titlePattern.FindStringSubmatch(line)
+			if len(mu) > 0 {
+				target = &step.Target{
+					Host:   s.host,
+					Tid:    mu[1],
+					Name:   mu[2],
+					Store:  "-",
+					Portal: fmt.Sprintf("%s:%d", s.hostname, DEFAULT_TGTD_LISTEN_PORT),
+				}
+				addTarget(s.memStorage, mu[1], target)
+				continue
+			}
 
-		mu = storePattern.FindStringSubmatch(line)
-		if len(mu) > 0 {
-			target.Store = mu[1]
+			mu = storePattern.FindStringSubmatch(line)
+			if len(mu) > 0 {
+				target.Store = mu[1]
+			}
 		}
 	}
 
+	return nil
+}
+
+type stepCheckSpdkConnect struct {
+	output *string
+}
+
+func (s *stepCheckSpdkConnect) Execute(ctx *context.Context) error {
+	output := *s.output
+	if strings.Contains(output, "Connection refused") {
+		return errno.ERR_TARGET_DAEMON_IS_ABNORMAL
+	}
 	return nil
 }
 
@@ -116,6 +152,10 @@ func NewListTargetsTask(curveadm *cli.CurveAdm, v interface{}) (*task.Task, erro
 	// add step
 	var output string
 	containerId := DEFAULT_TGTD_CONTAINER_NAME
+	cmd := "tgtadm --lld iscsi --mode target --op show"
+	if options.Spdk {
+		cmd = fmt.Sprintf("iscsiadm --mode discovery -t sendtargets --portal %s:3260", hc.GetHostname())
+	}
 
 	t.AddStep(&step.ListContainers{
 		ShowAll:     true,
@@ -130,15 +170,19 @@ func NewListTargetsTask(curveadm *cli.CurveAdm, v interface{}) (*task.Task, erro
 	})
 	t.AddStep(&step.ContainerExec{
 		ContainerId: &containerId,
-		Command:     fmt.Sprintf("tgtadm --lld iscsi --mode target --op show"),
+		Command:     cmd,
 		Out:         &output,
 		ExecOptions: curveadm.ExecOptions(),
 	})
 	t.AddStep(&step2FormatTarget{
 		host:       options.Host,
 		hostname:   hc.GetHostname(),
+		spdk:       options.Spdk,
 		output:     &output,
 		memStorage: curveadm.MemStorage(),
+	})
+	t.AddStep(&stepCheckSpdkConnect{
+		output: &output,
 	})
 
 	return t, nil

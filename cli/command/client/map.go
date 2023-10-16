@@ -126,6 +126,20 @@ func ParseBlockSize(blocksize string) (uint64, error) {
 	}
 	return m, nil
 }
+func ParseCacheSize(cachesize string) (uint64, error) {
+	if len(strings.TrimSpace(cachesize)) == 0 {
+		return 512, nil
+	}
+	m, err := humanize.ParseBytes(cachesize)
+	if err != nil || m <= 0 {
+		return 0, errno.ERR_VOLUME_BLOCKSIZE_REQUIRES_POSITIVE_INTEGER.
+			F("cache: %s", humanize.IBytes(m))
+	} else if m%512 != 0 {
+		return 0, errno.ERR_VOLUME_BLOCKSIZE_BE_MULTIPLE_OF_512.
+			F("cache: %s", humanize.IBytes(m))
+	}
+	return m, nil
+}
 func checkMapOptions(curveadm *cli.CurveAdm, options mapOptions) error {
 	if _, _, err := ParseImage(options.image); err != nil {
 		return err

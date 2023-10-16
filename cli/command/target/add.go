@@ -51,6 +51,8 @@ type addOptions struct {
 	create    bool
 	filename  string
 	blocksize string
+	cachesize string
+	spdk      bool
 }
 
 func checkAddOptions(curveadm *cli.CurveAdm, options addOptions) error {
@@ -91,6 +93,8 @@ func NewAddCommand(curveadm *cli.CurveAdm) *cobra.Command {
 	flags.StringVar(&options.size, "size", "10GiB", "Specify volume size")
 	flags.StringVarP(&options.filename, "conf", "c", "client.yaml", "Specify client configuration file")
 	flags.StringVar(&options.blocksize, "blocksize", "4096B", "Specify volume blocksize")
+	flags.StringVar(&options.cachesize, "cachesize", "512", "Specify cachesize")
+	flags.BoolVar(&options.spdk, "spdk", false, "create iscsi spdk target")
 	return cmd
 }
 
@@ -100,6 +104,7 @@ func genAddPlaybook(curveadm *cli.CurveAdm,
 	user, name, _ := client.ParseImage(options.image)
 	size, _ := client.ParseSize(options.size)
 	blocksize, _ := client.ParseBlockSize(options.blocksize)
+	cachesize, _ := client.ParseCacheSize(options.cachesize)
 	steps := ADD_PLAYBOOK_STEPS
 	pb := playbook.NewPlaybook(curveadm)
 	for _, step := range steps {
@@ -113,7 +118,9 @@ func genAddPlaybook(curveadm *cli.CurveAdm,
 					Volume:    name,
 					Size:      size,
 					Blocksize: blocksize,
+					CacheSize: cachesize,
 					Create:    options.create,
+					Spdk:      options.spdk,
 				},
 			},
 		})

@@ -31,6 +31,7 @@ import (
 	"github.com/opencurve/curveadm/internal/configure"
 	"github.com/opencurve/curveadm/internal/errno"
 	"github.com/opencurve/curveadm/internal/task/context"
+	"github.com/opencurve/curveadm/internal/task/scripts"
 	"github.com/opencurve/curveadm/internal/task/step"
 	"github.com/opencurve/curveadm/internal/task/task"
 )
@@ -64,16 +65,20 @@ func NewStartTargetDaemonTask(curveadm *cli.CurveAdm, cc *configure.ClientConfig
 		return nil, err
 	}
 
-	// new task
-	subname := fmt.Sprintf("host=%s image=%s", options.Host, cc.GetContainerImage())
-	t := task.NewTask("Start Target Daemon", subname, hc.GetSSHConfig())
-
 	// add step to task
 	var status, containerId, out string
 	containerName := DEFAULT_TGTD_CONTAINER_NAME
 	hostname := containerName
 	host2addr := fmt.Sprintf("%s:%s", hostname, hc.GetHostname())
+	targetScript := scripts.START_SPDK
+	targetScriptPath := "/curvebs/tools/sbin/start_spdk.sh"
+	cmd := fmt.Sprintf("nohup bash %s &", targetScriptPath)
 
+	// new task
+	subname := fmt.Sprintf("host=%s image=%s", options.Host, cc.GetContainerImage())
+	t := task.NewTask("Start Target Daemon", subname, hc.GetSSHConfig())
+
+	// add step to task
 	t.AddStep(&step.ListContainers{
 		ShowAll:     true,
 		Format:      "'{{.Status}}'",
@@ -94,7 +99,7 @@ func NewStartTargetDaemonTask(curveadm *cli.CurveAdm, cc *configure.ClientConfig
 		AddHost:     []string{host2addr},
 		Envs:        []string{"LD_PRELOAD=/usr/local/lib/libjemalloc.so"},
 		Hostname:    hostname,
-		Command:     fmt.Sprintf("--role nebd"),
+		Command:     "--role nebd",
 		Name:        containerName,
 		Pid:         "host",
 		Privileged:  true,
@@ -137,17 +142,38 @@ func NewStartTargetDaemonTask(curveadm *cli.CurveAdm, cc *configure.ClientConfig
 		Out:         &out,
 		ExecOptions: curveadm.ExecOptions(),
 	})
-	t.AddStep(&step.ContainerExec{
-		Command:     "tgtd",
-		ContainerId: &containerId,
-		ExecOptions: curveadm.ExecOptions(),
-	})
-	t.AddStep(&step.AddDaemonTask{ // install tgtd.task
-		ContainerId: &containerId,
-		Cmd:         "tgtd",
-		TaskName:    "tgtd",
-		ExecOptions: curveadm.ExecOptions(),
-	})
 
+	if options.Spdk {
+		t.AddStep(&step.InstallFile{ // install start_spdk.sh
+			Content:           &targetScript,
+			ContainerId:       &containerId,
+			ContainerDestPath: targetScriptPath,
+			ExecOptions:       curveadm.ExecOptions(),
+		})
+		t.AddStep(&step.ContainerExec{
+			ContainerId: &containerId,
+			Command:     cmd,
+			ExecOptions: curveadm.ExecOptions(),
+		})
+	} else {
+		t.AddStep(&step.AddDaemonTask{ // install addTarget.task
+			ContainerId: &containerId,
+			Cmd:         "/bin/bash",
+			Args:        []string{targetScriptPath},
+			TaskName:    "start spdk target",
+			ExecOptions: curveadm.ExecOptions(),
+		})
+		t.AddStep(&step.ContainerExec{
+			Command:     "tgtd",
+			ContainerId: &containerId,
+			ExecOptions: curveadm.ExecOptions(),
+		})
+		t.AddStep(&step.AddDaemonTask{ // install tgtd.task
+			ContainerId: &containerId,
+			Cmd:         "tgtd",
+			TaskName:    "tgtd",
+			ExecOptions: curveadm.ExecOptions(),
+		})
+	}
 	return t, nil
 }
