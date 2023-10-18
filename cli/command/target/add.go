@@ -23,17 +23,16 @@
 package target
 
 import (
+	"strings"
+
 	"github.com/fatih/color"
 	"github.com/opencurve/curveadm/cli/cli"
 	"github.com/opencurve/curveadm/cli/command/client"
 	comm "github.com/opencurve/curveadm/internal/common"
 	"github.com/opencurve/curveadm/internal/configure"
-	"github.com/opencurve/curveadm/internal/configure/topology"
-	"github.com/opencurve/curveadm/internal/errno"
 	"github.com/opencurve/curveadm/internal/playbook"
 	"github.com/opencurve/curveadm/internal/task/task/bs"
 	cliutil "github.com/opencurve/curveadm/internal/utils"
-	utils "github.com/opencurve/curveadm/internal/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -45,12 +44,14 @@ var (
 )
 
 type addOptions struct {
-	image     string
-	host      string
-	size      string
-	create    bool
-	filename  string
-	blocksize string
+	image       string
+	host        string
+	size        string
+	create      bool
+	blocksize   string
+	cachesize   string
+	spdk        bool
+	createcache bool
 }
 
 func checkAddOptions(curveadm *cli.CurveAdm, options addOptions) error {
@@ -60,9 +61,8 @@ func checkAddOptions(curveadm *cli.CurveAdm, options addOptions) error {
 		return err
 	} else if _, err = client.ParseBlockSize(options.blocksize); err != nil {
 		return err
-	} else if !utils.PathExist(options.filename) {
-		return errno.ERR_CLIENT_CONFIGURE_FILE_NOT_EXIST.
-			F("file path: %s", utils.AbsPath(options.filename))
+	} else if _, err = client.ParseCacheSize(options.cachesize); err != nil {
+		return err
 	}
 	return nil
 }
@@ -89,8 +89,10 @@ func NewAddCommand(curveadm *cli.CurveAdm) *cobra.Command {
 	flags.StringVar(&options.host, "host", "localhost", "Specify target host")
 	flags.BoolVar(&options.create, "create", false, "Create volume iff not exist")
 	flags.StringVar(&options.size, "size", "10GiB", "Specify volume size")
-	flags.StringVarP(&options.filename, "conf", "c", "client.yaml", "Specify client configuration file")
 	flags.StringVar(&options.blocksize, "blocksize", "4096B", "Specify volume blocksize")
+	flags.StringVar(&options.cachesize, "cachesize", "64MB", "Specify cachesize MB")
+	flags.BoolVar(&options.spdk, "spdk", false, "create iscsi spdk target")
+	flags.BoolVar(&options.createcache, "createcache", false, "create cache disk for current target")
 	return cmd
 }
 
@@ -100,6 +102,7 @@ func genAddPlaybook(curveadm *cli.CurveAdm,
 	user, name, _ := client.ParseImage(options.image)
 	size, _ := client.ParseSize(options.size)
 	blocksize, _ := client.ParseBlockSize(options.blocksize)
+	cachesize, _ := client.ParseCacheSize(options.cachesize)
 	steps := ADD_PLAYBOOK_STEPS
 	pb := playbook.NewPlaybook(curveadm)
 	for _, step := range steps {
@@ -108,12 +111,15 @@ func genAddPlaybook(curveadm *cli.CurveAdm,
 			Configs: ccs,
 			Options: map[string]interface{}{
 				comm.KEY_TARGET_OPTIONS: bs.TargetOption{
-					Host:      options.host,
-					User:      user,
-					Volume:    name,
-					Size:      size,
-					Blocksize: blocksize,
-					Create:    options.create,
+					Host:            options.host,
+					User:            user,
+					Volume:          name,
+					Size:            size,
+					Create:          options.create,
+					Blocksize:       blocksize,
+					CacheSize:       cachesize,
+					CreateCacheDisk: options.createcache,
+					Spdk:            options.spdk,
 				},
 			},
 		})
@@ -122,17 +128,8 @@ func genAddPlaybook(curveadm *cli.CurveAdm,
 }
 
 func runAdd(curveadm *cli.CurveAdm, options addOptions) error {
-	// 1) parse client configure
-	cc, err := configure.ParseClientConfig(options.filename)
-	if err != nil {
-		return err
-	} else if cc.GetKind() != topology.KIND_CURVEBS {
-		return errno.ERR_REQUIRE_CURVEBS_KIND_CLIENT_CONFIGURE_FILE.
-			F("kind: %s", cc.GetKind())
-	}
-
 	// 2) generate map playbook
-	pb, err := genAddPlaybook(curveadm, []*configure.ClientConfig{cc}, options)
+	pb, err := genAddPlaybook(curveadm, []*configure.ClientConfig{configure.NewEmptyClientConfig()}, options)
 	if err != nil {
 		return err
 	}
@@ -147,5 +144,57 @@ func runAdd(curveadm *cli.CurveAdm, options addOptions) error {
 	curveadm.WriteOutln("")
 	curveadm.WriteOutln(color.GreenString("Add target (%s) to %s success ^_^"),
 		options.image, options.host)
+	return nil
+}
+
+// for http service spdk
+func AddSpdkTgt(curveadm *cli.CurveAdm, image, host, size, cacheSize, blockSize string, createImage, createCache bool) error {
+	// new ClientConfig object
+	defaultSize, defaultBlockSize, defaultCacheSize := "10GiB", "4096B", "64MB"
+	if strings.TrimSpace(size) != "" {
+		defaultSize = size
+	}
+	if strings.TrimSpace(blockSize) != "" {
+		defaultBlockSize = blockSize
+	}
+	if strings.TrimSpace(cacheSize) != "" {
+		defaultCacheSize = cacheSize
+	}
+	defaultCreate, defaultCreateCache := false, false
+	if createImage {
+		defaultCreate = true
+	}
+
+	if createCache {
+		defaultCreateCache = true
+	}
+
+	options := addOptions{
+		image:       image,
+		host:        host,
+		size:        defaultSize,
+		create:      defaultCreate,
+		cachesize:   defaultCacheSize,
+		createcache: defaultCreateCache,
+		blocksize:   defaultBlockSize,
+		spdk:        true,
+	}
+	err := checkAddOptions(curveadm, options)
+	if err != nil {
+		return err
+	}
+
+	// 2) generate map playbook
+	pb, err := genAddPlaybook(curveadm, []*configure.ClientConfig{configure.NewEmptyClientConfig()}, options)
+	if err != nil {
+		return err
+	}
+
+	// 3) run playground
+	err = pb.Run()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }

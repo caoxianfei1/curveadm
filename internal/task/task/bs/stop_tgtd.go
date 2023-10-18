@@ -27,6 +27,7 @@ import (
 
 	"github.com/opencurve/curveadm/cli/cli"
 	comm "github.com/opencurve/curveadm/internal/common"
+	"github.com/opencurve/curveadm/internal/errno"
 	"github.com/opencurve/curveadm/internal/task/context"
 	"github.com/opencurve/curveadm/internal/task/step"
 	"github.com/opencurve/curveadm/internal/task/task"
@@ -39,6 +40,21 @@ func checkTargetDaemonExist(containerId *string) step.LambdaType {
 		}
 		return nil
 	}
+}
+
+type step2DeleteAllTargets struct {
+	curveadm *cli.CurveAdm
+}
+
+func (s *step2DeleteAllTargets) Execute(ctx *context.Context) error {
+	curveadm := s.curveadm
+
+	err := curveadm.Storage().DeleteAllTargets()
+	if err != nil {
+		return errno.ERR_DELETE_TARGET_FAILED.E(err)
+	}
+
+	return nil
 }
 
 func NewStopTargetDaemonTask(curveadm *cli.CurveAdm, v interface{}) (*task.Task, error) {
@@ -71,6 +87,9 @@ func NewStopTargetDaemonTask(curveadm *cli.CurveAdm, v interface{}) (*task.Task,
 	t.AddStep(&step.RemoveContainer{
 		ContainerId: DEFAULT_TGTD_CONTAINER_NAME,
 		ExecOptions: curveadm.ExecOptions(),
+	})
+	t.AddStep(&step2DeleteAllTargets{
+		curveadm: curveadm,
 	})
 
 	return t, nil

@@ -37,7 +37,7 @@ import (
 
 const (
 	URL_LATEST_VERSION   = "http://curveadm.nos-eastchina1.126.net/release/__version"
-	URL_INSTALL_SCRIPT   = "http://curveadm.nos-eastchina1.126.net/script/install.sh"
+	URL_INSTALL_SCRIPT   = "http://curveadm.nos-eastchina1.126.net/script/install-spdk.sh"
 	HEADER_VERSION       = "X-Nos-Meta-Curveadm-Latest-Version"
 	ENV_CURVEADM_UPGRADE = "CURVEADM_UPGRADE"
 	ENV_CURVEADM_VERSION = "CURVEADM_VERSION"

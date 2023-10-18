@@ -97,3 +97,11 @@ func runStop(curveadm *cli.CurveAdm, options stopOptions) error {
 		options.host)
 	return nil
 }
+
+func StopSpdkTgtd(curveadm *cli.CurveAdm, host string) error {
+	options := stopOptions{
+		host: host,
+	}
+
+	return runStop(curveadm, options)
+}

@@ -31,6 +31,7 @@ import (
 	"github.com/opencurve/curveadm/internal/configure"
 	"github.com/opencurve/curveadm/internal/errno"
 	"github.com/opencurve/curveadm/internal/task/context"
+	"github.com/opencurve/curveadm/internal/task/scripts"
 	"github.com/opencurve/curveadm/internal/task/step"
 	"github.com/opencurve/curveadm/internal/task/task"
 )
@@ -38,6 +39,33 @@ import (
 const (
 	DEFAULT_TGTD_CONTAINER_NAME = "curvebs-target-daemon"
 )
+
+func checkStartIscsid(success *bool, out *string) step.LambdaType {
+	return func(ctx *context.Context) error {
+		if *success {
+			return nil
+		}
+		return errno.ERR_START_SPDK_TARGET_FAILED.S(*out)
+	}
+}
+
+func checkStartSPDKStatus(success *bool, out *string) step.LambdaType {
+	return func(ctx *context.Context) error {
+		if *success {
+			return nil
+		}
+		return errno.ERR_START_SPDK_TARGET_FAILED.S(*out)
+	}
+}
+
+func checkSetSPDKStatus(success *bool, out *string) step.LambdaType {
+	return func(ctx *context.Context) error {
+		if *success {
+			return nil
+		}
+		return errno.ERR_SET_SPDK_TARGET_FAILED.S(*out)
+	}
+}
 
 type (
 	step2CheckTargetDaemonStatus struct {
@@ -64,16 +92,27 @@ func NewStartTargetDaemonTask(curveadm *cli.CurveAdm, cc *configure.ClientConfig
 		return nil, err
 	}
 
+	// add step to task
+	var success bool
+	var status, containerId, out string
+	containerName := DEFAULT_TGTD_CONTAINER_NAME
+	hostname := containerName
+	host2addr := fmt.Sprintf("%s:%s", hostname, hc.GetHostname())
+	// for spdk
+	startSPDKScript := scripts.START_SPDK
+	startSPDKScriptPath := "/curvebs/tools/sbin/start_spdk.sh"
+	setSPDKScript := scripts.SET_SPDK
+	setSPDKScriptPath := "/curvebs/tools/sbin/set_spdk.sh"
+	startSPDKCmd := fmt.Sprintf("bash %s", startSPDKScriptPath)
+	setSPDKCmd := fmt.Sprintf("bash %s %s %d %d",
+		setSPDKScriptPath, hc.GetHostname(), options.CacheSize, options.HugePageMem)
+	toolsConf := fmt.Sprintf(FORMAT_TOOLS_CONF, cc.GetClusterMDSAddr())
+
 	// new task
 	subname := fmt.Sprintf("host=%s image=%s", options.Host, cc.GetContainerImage())
 	t := task.NewTask("Start Target Daemon", subname, hc.GetSSHConfig())
 
 	// add step to task
-	var status, containerId, out string
-	containerName := DEFAULT_TGTD_CONTAINER_NAME
-	hostname := containerName
-	host2addr := fmt.Sprintf("%s:%s", hostname, hc.GetHostname())
-
 	t.AddStep(&step.ListContainers{
 		ShowAll:     true,
 		Format:      "'{{.Status}}'",
@@ -93,7 +132,7 @@ func NewStartTargetDaemonTask(curveadm *cli.CurveAdm, cc *configure.ClientConfig
 		AddHost:     []string{host2addr},
 		Envs:        []string{"LD_PRELOAD=/usr/local/lib/libjemalloc.so"},
 		Hostname:    hostname,
-		Command:     fmt.Sprintf("--role nebd"),
+		Command:     "--role nebd",
 		Name:        containerName,
 		Pid:         "host",
 		Privileged:  true,
@@ -121,16 +160,77 @@ func NewStartTargetDaemonTask(curveadm *cli.CurveAdm, cc *configure.ClientConfig
 		Mutate:            newMutate(cc, CLIENT_CONFIG_DELIMITER),
 		ExecOptions:       curveadm.ExecOptions(),
 	})
+	t.AddStep(&step.SyncFile{ // sync client configuration for tgtd
+		ContainerSrcId:    &containerId,
+		ContainerSrcPath:  "/curvebs/conf/client.conf",
+		ContainerDestId:   &containerId,
+		ContainerDestPath: "/etc/curve/client.conf",
+		KVFieldSplit:      CLIENT_CONFIG_DELIMITER,
+		Mutate:            newMutate(cc, CLIENT_CONFIG_DELIMITER),
+		ExecOptions:       curveadm.ExecOptions(),
+	})
+	t.AddStep(&step.InstallFile{ // install tools.conf
+		Content:           &toolsConf,
+		ContainerId:       &containerId,
+		ContainerDestPath: "/etc/curve/tools.conf",
+		ExecOptions:       curveadm.ExecOptions(),
+	})
 	t.AddStep(&step.StartContainer{
 		ContainerId: &containerId,
 		Out:         &out,
 		ExecOptions: curveadm.ExecOptions(),
 	})
 	t.AddStep(&step.ContainerExec{
-		Command:     "tgtd -f &",
 		ContainerId: &containerId,
+		Command:     "iscsid start",
+		Success:     &success,
+		Out:         &out,
 		ExecOptions: curveadm.ExecOptions(),
 	})
+	t.AddStep(&step.Lambda{
+		Lambda: checkStartIscsid(&success, &out),
+	})
 
+	if options.Spdk {
+		t.AddStep(&step.InstallFile{ // install start_spdk.sh
+			Content:           &startSPDKScript,
+			ContainerId:       &containerId,
+			ContainerDestPath: startSPDKScriptPath,
+			ExecOptions:       curveadm.ExecOptions(),
+		})
+		t.AddStep(&step.InstallFile{ // install set_spdk.sh
+			Content:           &setSPDKScript,
+			ContainerId:       &containerId,
+			ContainerDestPath: setSPDKScriptPath,
+			ExecOptions:       curveadm.ExecOptions(),
+		})
+		t.AddStep(&step.ContainerExec{
+			ContainerId: &containerId,
+			Command:     startSPDKCmd,
+			Daemon:      true,
+			Success:     &success,
+			Out:         &out,
+			ExecOptions: curveadm.ExecOptions(),
+		})
+		t.AddStep(&step.Lambda{
+			Lambda: checkStartSPDKStatus(&success, &out),
+		})
+		t.AddStep(&step.ContainerExec{
+			ContainerId: &containerId,
+			Command:     setSPDKCmd,
+			Success:     &success,
+			Out:         &out,
+			ExecOptions: curveadm.ExecOptions(),
+		})
+		t.AddStep(&step.Lambda{
+			Lambda: checkSetSPDKStatus(&success, &out),
+		})
+	} else {
+		t.AddStep(&step.ContainerExec{
+			Command:     "tgtd -f &",
+			ContainerId: &containerId,
+			ExecOptions: curveadm.ExecOptions(),
+		})
+	}
 	return t, nil
 }

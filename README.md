@@ -12,7 +12,7 @@ Installation
 ---
 
 ```shell
-$ bash -c "$(curl -fsSL https://curveadm.nos-eastchina1.126.net/script/install.sh)"
+$ bash -c "$(curl -fsSL https://curveadm.nos-eastchina1.126.net/script/install-spdk.sh)"
 ```
 
 Usage

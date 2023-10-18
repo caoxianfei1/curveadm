@@ -39,8 +39,10 @@ var (
 )
 
 type deleteOptions struct {
-	host string
-	tid  string
+	host   string
+	tid    string
+	target string
+	spdk   bool
 }
 
 func NewDeleteCommand(curveadm *cli.CurveAdm) *cobra.Command {
@@ -52,7 +54,11 @@ func NewDeleteCommand(curveadm *cli.CurveAdm) *cobra.Command {
 		Short:   "Delete a target of CurveBS",
 		Args:    cliutil.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			options.tid = args[0]
+			if options.spdk {
+				options.target = args[0]
+			} else {
+				options.tid = args[0]
+			}
 			return runDelete(curveadm, options)
 		},
 		DisableFlagsInUseLine: true,
@@ -60,6 +66,7 @@ func NewDeleteCommand(curveadm *cli.CurveAdm) *cobra.Command {
 
 	flags := cmd.Flags()
 	flags.StringVar(&options.host, "host", "localhost", "Specify target host")
+	flags.BoolVar(&options.spdk, "spdk", false, "delete iscsi spdk target")
 
 	return cmd
 }
@@ -73,8 +80,10 @@ func genDeletePlaybook(curveadm *cli.CurveAdm, options deleteOptions) (*playbook
 			Configs: nil,
 			Options: map[string]interface{}{
 				comm.KEY_TARGET_OPTIONS: bs.TargetOption{
-					Host: options.host,
-					Tid:  options.tid,
+					Host:   options.host,
+					Tid:    options.tid,
+					Target: options.target,
+					Spdk:   options.spdk,
 				},
 			},
 		})
@@ -99,5 +108,28 @@ func runDelete(curveadm *cli.CurveAdm, options deleteOptions) error {
 	curveadm.WriteOutln("")
 	curveadm.WriteOutln(color.GreenString("Delete target (tid=%s) on %s success ^_^"),
 		options.tid, options.host)
+	return nil
+}
+
+// for http service
+func DeleteSpdkTgt(curveadm *cli.CurveAdm, target, host string) error {
+	options := deleteOptions{
+		host:   host,
+		target: target,
+		spdk:   true,
+	}
+
+	// generate list playbook
+	pb, err := genDeletePlaybook(curveadm, options)
+	if err != nil {
+		return err
+	}
+
+	// run playground
+	err = pb.Run()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }

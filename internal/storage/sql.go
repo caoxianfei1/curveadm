@@ -325,6 +325,36 @@ var (
 	DeleteAnyItem = `DELETE from any WHERE id = ?`
 )
 
+type Target struct {
+	Id         string
+	Target     string
+	Storage    string
+	PortalInfo string
+}
+
+var (
+	// table: client
+	CreateTargetsTable = `
+		CREATE TABLE IF NOT EXISTS targets (
+			id TEXT PRIMARY KEY,
+			target TEXT NOT NULL,
+			storage TEXT NOT NULL,
+			portal_info TEXT NOT NULL
+		)
+	`
+	// insert target
+	InsertTarget = `INSERT INTO targets(id, target, storage, portal_info) VALUES(?, ?, ?, ?)`
+
+	// select targets
+	SelectTargets = `SELECT * FROM targets`
+
+	// delete target
+	DeleteTarget = `DELETE from targets WHERE target = ?`
+
+	// delete all targets
+	DeleteAllTargets = `DELETE from targets`
+)
+
 var (
 	// check pool column
 	CheckPoolColumn = `

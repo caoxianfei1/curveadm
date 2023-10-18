@@ -31,6 +31,7 @@ import (
 	client "github.com/opencurve/curveadm/internal/configure"
 	"github.com/opencurve/curveadm/internal/errno"
 	"github.com/opencurve/curveadm/internal/task/context"
+	"github.com/opencurve/curveadm/internal/task/scripts"
 	"github.com/opencurve/curveadm/internal/task/step"
 	"github.com/opencurve/curveadm/internal/task/task"
 )
@@ -50,6 +51,36 @@ func (s *step2CheckTgtdStatus) Execute(ctx *context.Context) error {
 	return nil
 }
 
+type step2DeleteTarget struct {
+	curveadm *cli.CurveAdm
+	options  TargetOption
+}
+
+func (s *step2DeleteTarget) Execute(ctx *context.Context) error {
+	curveadm := s.curveadm
+	options := s.options
+	target := options.Target
+
+	err := curveadm.Storage().DeleteTarget(target)
+	if err != nil {
+		return errno.ERR_DELETE_TARGET_FAILED.E(err)
+	}
+
+	return nil
+}
+
+func checkDeleteTarget(success *bool, out *string) step.LambdaType {
+	return func(ctx *context.Context) error {
+		if !*success {
+			return errno.ERR_DELETE_TARGET_FAILED.S(*out)
+		}
+		if *out == "NOEXIST" {
+			return task.ERR_SKIP_TASK
+		}
+		return nil
+	}
+}
+
 func NewDeleteTargetTask(curveadm *cli.CurveAdm, cc *client.ClientConfig) (*task.Task, error) {
 	options := curveadm.MemStorage().Get(common.KEY_TARGET_OPTIONS).(TargetOption)
 	hc, err := curveadm.GetHost(options.Host)
@@ -60,8 +91,16 @@ func NewDeleteTargetTask(curveadm *cli.CurveAdm, cc *client.ClientConfig) (*task
 	subname := fmt.Sprintf("hostname=%s tid=%s", hc.GetHostname(), options.Tid)
 	t := task.NewTask("Delete Target", subname, hc.GetSSHConfig())
 
+	targetScript := scripts.DELETE_SPDK
+	targetScriptPath := "/curvebs/tools/sbin/delete_spdk_target.sh"
+	cmd := fmt.Sprintf("bash %s %s %s",
+		targetScriptPath,
+		options.Target,
+		hc.GetHostname(),
+	)
 	// add step
 	var output string
+	var success bool
 	containerId := DEFAULT_TGTD_CONTAINER_NAME
 	tid := options.Tid
 	t.AddStep(&step.ListContainers{
@@ -74,11 +113,34 @@ func NewDeleteTargetTask(curveadm *cli.CurveAdm, cc *client.ClientConfig) (*task
 	t.AddStep(&step2CheckTgtdStatus{
 		output: &output,
 	})
-	t.AddStep(&step.ContainerExec{
-		ContainerId: &containerId,
-		Command:     fmt.Sprintf("tgtadm --lld iscsi --mode target --op delete --tid %s", tid),
-		ExecOptions: curveadm.ExecOptions(),
-	})
+	if options.Spdk {
+		t.AddStep(&step.InstallFile{ // install delete_spdk_target.sh
+			Content:           &targetScript,
+			ContainerId:       &containerId,
+			ContainerDestPath: targetScriptPath,
+			ExecOptions:       curveadm.ExecOptions(),
+		})
+		t.AddStep(&step.ContainerExec{
+			ContainerId: &containerId,
+			Command:     cmd,
+			Success:     &success,
+			Out:         &output,
+			ExecOptions: curveadm.ExecOptions(),
+		})
+		t.AddStep(&step2DeleteTarget{
+			curveadm: curveadm,
+			options:  options,
+		})
+		t.AddStep(&step.Lambda{
+			Lambda: checkDeleteTarget(&success, &output),
+		})
+	} else {
+		t.AddStep(&step.ContainerExec{
+			ContainerId: &containerId,
+			Command:     fmt.Sprintf("tgtadm --lld iscsi --mode target --op delete --tid %s", tid),
+			ExecOptions: curveadm.ExecOptions(),
+		})
+	}
 
 	return t, nil
 }

@@ -23,8 +23,11 @@
 package target
 
 import (
+	"encoding/json"
+
 	"github.com/opencurve/curveadm/cli/cli"
 	comm "github.com/opencurve/curveadm/internal/common"
+	"github.com/opencurve/curveadm/internal/errno"
 	"github.com/opencurve/curveadm/internal/playbook"
 	"github.com/opencurve/curveadm/internal/task/task/bs"
 	"github.com/opencurve/curveadm/internal/tui"
@@ -40,6 +43,7 @@ var (
 
 type listOptions struct {
 	host string
+	spdk bool
 }
 
 func NewListCommand(curveadm *cli.CurveAdm) *cobra.Command {
@@ -58,6 +62,7 @@ func NewListCommand(curveadm *cli.CurveAdm) *cobra.Command {
 
 	flags := cmd.Flags()
 	flags.StringVar(&options.host, "host", "localhost", "Specify target host")
+	flags.BoolVar(&options.spdk, "spdk", false, "list iscsi spdk target")
 
 	return cmd
 }
@@ -72,6 +77,7 @@ func genListPlaybook(curveadm *cli.CurveAdm, options listOptions) (*playbook.Pla
 			Options: map[string]interface{}{
 				comm.KEY_TARGET_OPTIONS: bs.TargetOption{
 					Host: options.host,
+					Spdk: options.spdk,
 				},
 			},
 		})
@@ -110,4 +116,21 @@ func runList(curveadm *cli.CurveAdm, options listOptions) error {
 	// 3) print targets
 	displayTargets(curveadm)
 	return nil
+}
+
+// for http service
+func ListSpdkTgt(curveadm *cli.CurveAdm, host string) (string, error) {
+	targets, err := curveadm.Storage().ListTargets()
+	if err != nil {
+		return "", errno.ERR_SELECT_TARGET_FAILED.E(err)
+	}
+	if len(targets) > 0 {
+		targets, err := json.Marshal(targets)
+		if err != nil {
+			return "", errno.ERR_MARSHAL_TARGET_FAILED.E(err)
+		}
+		return string(targets), nil
+	}
+
+	return "", nil
 }

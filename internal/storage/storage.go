@@ -76,6 +76,7 @@ func (s *Storage) init() error {
 		CreatePlaygroundTable,
 		CreateAuditTable,
 		CreateAnyTable,
+		CreateTargetsTable,
 	}
 
 	for _, sql := range sqls {
@@ -443,4 +444,41 @@ func (s *Storage) GetClientConfig(id string) ([]Any, error) {
 func (s *Storage) DeleteClientConfig(id string) error {
 	id = s.realId(PREFIX_CLIENT_CONFIG, id)
 	return s.write(DeleteAnyItem, id)
+}
+
+// spdk tgt
+func (s *Storage) getTargets(query string, args ...interface{}) ([]Target, error) {
+	result, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer result.Close()
+
+	targets := []Target{}
+	var target Target
+	for result.Next() {
+		err = result.Scan(&target.Id, &target.Target, &target.Storage, &target.PortalInfo)
+		if err != nil {
+			return nil, err
+		}
+		targets = append(targets, target)
+	}
+
+	return targets, nil
+}
+
+func (s *Storage) InsertTarget(id, target, volume, portalInfo string) error {
+	return s.write(InsertTarget, id, target, volume, portalInfo)
+}
+
+func (s *Storage) DeleteTarget(target string) error {
+	return s.write(DeleteTarget, target)
+}
+
+func (s *Storage) ListTargets() ([]Target, error) {
+	return s.getTargets(SelectTargets)
+}
+
+func (s *Storage) DeleteAllTargets() error {
+	return s.write(DeleteAllTargets)
 }

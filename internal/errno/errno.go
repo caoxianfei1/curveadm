@@ -114,6 +114,14 @@ func (e *ErrorCode) Error() string {
 	return tui.PromptErrorCode(e.code, e.description, e.clue, gLogpath)
 }
 
+func (e *ErrorCode) IsHttpErr() bool {
+	return e.code/10000 == 70
+}
+
+func (e *ErrorCode) HttpCode() int {
+	return e.code % 1000
+}
+
 /*
  * 0xx: init curveadm
  *
@@ -229,6 +237,11 @@ var (
 	ERR_SELECT_CLIENT_CONFIG_FAILED = EC(116001, "execute SQL failed which select client config")
 	ERR_DELETE_CLIENT_CONFIG_FAILED = EC(116002, "execute SQL failed which delete client config")
 
+	ERR_INSERT_TARGET_FAILED  = EC(117000, "execute SQL failed which insert target")
+	ERR_DELETE_TARGET_FAILED  = EC(117001, "execute SQL failed which delete target")
+	ERR_SELECT_TARGET_FAILED  = EC(117002, "execute SQL failed which select target")
+	ERR_DELETE_TARGETS_FAILED = EC(117003, "execute SQL failed which delete all targets in table")
+
 	// 200: command options (hosts)
 
 	// 210: command options (cluster)
@@ -245,18 +258,23 @@ var (
 	// 220: commad options (client common)
 	ERR_UNSUPPORT_CLIENT_KIND = EC(220000, "unsupport client kind")
 	// 221: command options (client/bs)
-	ERR_INVALID_VOLUME_FORMAT                      = EC(221000, "invalid volume format")
-	ERR_ROOT_VOLUME_USER_NOT_ALLOWED               = EC(221001, "root as volume user is not allowed")
-	ERR_VOLUME_NAME_MUST_START_WITH_SLASH_PREFIX   = EC(221002, "volume name must start with \"/\" prefix")
-	ERR_VOLUME_SIZE_MUST_END_WITH_GiB_SUFFIX       = EC(221003, "volume size must end with \"GiB\" suffix")
-	ERR_VOLUME_SIZE_REQUIRES_POSITIVE_INTEGER      = EC(221004, "volume size requires a positive integer")
-	ERR_VOLUME_SIZE_MUST_BE_MULTIPLE_OF_10_GiB     = EC(221005, "volume size must be a multiple of 10GiB, like 10GiB, 20GiB, 30GiB...")
-	ERR_CLIENT_CONFIGURE_FILE_NOT_EXIST            = EC(221006, "client configure file not exist")
-	ERR_NO_CLIENT_MATCHED                          = EC(221007, "no client matched")
-	ERR_VOLUME_NAME_CAN_NOT_CONTAIN_UNDERSCORE     = EC(221008, "volume name can't contain \"_\" symbol")
-	ERR_VOLUME_BLOCKSIZE_MUST_END_WITH_BYTE_SUFFIX = EC(201009, "volume block size must end with \"B\" suffix")
-	ERR_VOLUME_BLOCKSIZE_REQUIRES_POSITIVE_INTEGER = EC(221010, "volume block size requires a positive integer")
-	ERR_VOLUME_BLOCKSIZE_BE_MULTIPLE_OF_512        = EC(221011, "volume block size be a multiple of 512B, like 1KiB, 2KiB, 3KiB...")
+	ERR_INVALID_VOLUME_FORMAT                        = EC(221000, "invalid volume format")
+	ERR_ROOT_VOLUME_USER_NOT_ALLOWED                 = EC(221001, "root as volume user is not allowed")
+	ERR_VOLUME_NAME_MUST_START_WITH_SLASH_PREFIX     = EC(221002, "volume name must start with \"/\" prefix")
+	ERR_VOLUME_SIZE_MUST_END_WITH_GiB_SUFFIX         = EC(221003, "volume size must end with \"GiB\" suffix")
+	ERR_VOLUME_SIZE_REQUIRES_POSITIVE_INTEGER        = EC(221004, "volume size requires a positive integer")
+	ERR_VOLUME_SIZE_MUST_BE_MULTIPLE_OF_10_GiB       = EC(221005, "volume size must be a multiple of 10GiB, like 10GiB, 20GiB, 30GiB...")
+	ERR_CLIENT_CONFIGURE_FILE_NOT_EXIST              = EC(221006, "client configure file not exist")
+	ERR_NO_CLIENT_MATCHED                            = EC(221007, "no client matched")
+	ERR_VOLUME_NAME_CAN_NOT_CONTAIN_UNDERSCORE       = EC(221008, "volume name can't contain \"_\" symbol")
+	ERR_VOLUME_BLOCKSIZE_MUST_END_WITH_BYTE_SUFFIX   = EC(201009, "volume block size must end with \"B\" suffix")
+	ERR_VOLUME_BLOCKSIZE_REQUIRES_POSITIVE_INTEGER   = EC(221010, "volume block size requires a positive integer")
+	ERR_VOLUME_BLOCKSIZE_BE_MULTIPLE_OF_512          = EC(221011, "volume block size be a multiple of 512B, like 1KiB, 2KiB, 3KiB...")
+	ERR_VOLUME_CACHESIZE_REQUIRES_POSITIVE_INTEGER   = EC(221012, "volume cache size requires a positive integer")
+	ERR_VOLUME_CACHESIZE_BE_MULTIPLE_OF_512          = EC(221013, "volume cache size be a multiple of 512B, like 1KiB, 2KiB, 3KiB...")
+	ERR_VOLUME_CACHESIZE_MUST_END_WITH_MB_SUFFIX     = EC(201014, "volume cache size must end with \"MB\" suffix")
+	ERR_VOLUME_HUGEPAGEMEM_REQUIRES_POSITIVE_INTEGER = EC(221015, "hugepage memory requires a positive integer")
+
 	// 222: command options (client/fs)
 	ERR_FS_MOUNTPOINT_REQUIRE_ABSOLUTE_PATH = EC(222000, "mount point must be an absolute path")
 
@@ -388,6 +406,12 @@ var (
 	ERR_UNMAP_VOLUME_FAILED               = EC(420006, "unmap volume failed")
 	ERR_OLD_TARGET_DAEMON_IS_ABNORMAL     = EC(420007, "old target daemon is abnormal")
 	ERR_TARGET_DAEMON_IS_ABNORMAL         = EC(420008, "target daemon is abnormal")
+	ERR_START_SPDK_TARGET_FAILED          = EC(420009, "start spdk target failed")
+	ERR_START_ISCSID_FAILED               = EC(420010, "iscsid start failed")
+	ERR_SET_SPDK_TARGET_FAILED            = EC(420011, "set spdk target failed")
+	ERR_ADD_SPDK_TARGET_FAILED            = EC(420012, "add spdk target failed")
+	ERR_MARSHAL_TARGET_FAILED             = EC(420013, "marshal Target failed when list targets")
+	ERR_DISCOVER_OUTPUT_FORAMT_FAILED     = EC(420014, "iscsiadm discovery output format is incorrect")
 
 	// 430: common (curvefs client)
 	ERR_FS_PATH_ALREADY_MOUNTED  = EC(430000, "path already mounted")
@@ -531,4 +555,11 @@ var (
 	ERR_CANCEL_OPERATION = EC(CODE_CANCEL_OPERATION, "cancel operation")
 	// 999
 	ERR_UNKNOWN = EC(999999, "unknown error")
+
+	// 70: http service
+	ERR_UNSUPPORT_REQUEST_URI     = EC(701400, "unsupport request uri")
+	ERR_UNSUPPORT_METHOD_ARGUMENT = EC(702400, "unsupport method argument")
+	ERR_HTTP_METHOD_MISMATCHED    = EC(703400, "http method mismatch")
+	ERR_BAD_REQUEST_FORM_PARAM    = EC(704400, "bad request form param")
+	ERR_UNSUPPORT_HTTP_METHOD     = EC(705405, "unsupport http method")
 )

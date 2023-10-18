@@ -61,4 +61,13 @@ var (
 
 	//go:embed shell/create_fs.sh
 	CREATE_FS string
+
+	// SPKD
+
+	//go:embed shell/start_spdk.sh
+	START_SPDK string
+	//go:embed shell/set_spdk.sh
+	SET_SPDK string
+	//go:embed shell/delete_spdk.sh
+	DELETE_SPDK string
 )

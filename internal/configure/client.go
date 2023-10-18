@@ -87,6 +87,10 @@ type (
 	}
 )
 
+func NewEmptyClientConfig() *ClientConfig {
+	return &ClientConfig{}
+}
+
 func NewClientConfig(config map[string]interface{}) (*ClientConfig, error) {
 	serviceConfig := map[string]string{}
 	for k, v := range config {

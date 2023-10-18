@@ -32,6 +32,7 @@ import (
 	"github.com/opencurve/curveadm/cli/command/cluster"
 	"github.com/opencurve/curveadm/cli/command/config"
 	"github.com/opencurve/curveadm/cli/command/hosts"
+	"github.com/opencurve/curveadm/cli/command/http"
 	"github.com/opencurve/curveadm/cli/command/pfs"
 	"github.com/opencurve/curveadm/cli/command/playground"
 	"github.com/opencurve/curveadm/cli/command/target"
@@ -89,6 +90,8 @@ func addSubCommands(cmd *cobra.Command, curveadm *cli.CurveAdm) {
 		client.NewMountCommand(curveadm),   // curveadm mount
 		client.NewUnmapCommand(curveadm),   // curveadm unmap
 		client.NewUmountCommand(curveadm),  // curveadm umount
+
+		http.NewHttpCommand(curveadm),
 	)
 }
 

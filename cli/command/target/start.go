@@ -23,8 +23,11 @@
 package target
 
 import (
+	"strings"
+
 	"github.com/fatih/color"
 	"github.com/opencurve/curveadm/cli/cli"
+	"github.com/opencurve/curveadm/cli/command/client"
 	comm "github.com/opencurve/curveadm/internal/common"
 	"github.com/opencurve/curveadm/internal/configure"
 	"github.com/opencurve/curveadm/internal/configure/topology"
@@ -44,6 +47,10 @@ var (
 type startOptions struct {
 	host     string
 	filename string
+
+	cachesize   string
+	hugepagemem string
+	spdk        bool
 }
 
 func NewStartCommand(curveadm *cli.CurveAdm) *cobra.Command {
@@ -62,6 +69,9 @@ func NewStartCommand(curveadm *cli.CurveAdm) *cobra.Command {
 	flags := cmd.Flags()
 	flags.StringVar(&options.host, "host", "localhost", "Specify target host")
 	flags.StringVarP(&options.filename, "conf", "c", "client.yaml", "Specify client configuration file")
+	flags.StringVar(&options.cachesize, "cachesize", "2048MB", "Specify cachesize MB")
+	flags.StringVar(&options.hugepagemem, "hugepagemem", "51200", "Specify hugepage memory size to allocate MB")
+	flags.BoolVar(&options.spdk, "spdk", false, "start iscsi spdk target")
 
 	return cmd
 }
@@ -69,6 +79,14 @@ func NewStartCommand(curveadm *cli.CurveAdm) *cobra.Command {
 func genStartPlaybook(curveadm *cli.CurveAdm,
 	ccs []*configure.ClientConfig,
 	options startOptions) (*playbook.Playbook, error) {
+	cachesize, err := client.ParseCacheSize(options.cachesize)
+	if err != nil {
+		return nil, err
+	}
+	hugePageMem, err := client.ParseHugePageMem(options.hugepagemem)
+	if err != nil {
+		return nil, err
+	}
 	steps := START_PLAYBOOK_STEPS
 	pb := playbook.NewPlaybook(curveadm)
 	for _, step := range steps {
@@ -77,7 +95,10 @@ func genStartPlaybook(curveadm *cli.CurveAdm,
 			Configs: ccs,
 			Options: map[string]interface{}{
 				comm.KEY_TARGET_OPTIONS: bs.TargetOption{
-					Host: options.host,
+					Host:        options.host,
+					CacheSize:   cachesize,
+					HugePageMem: hugePageMem,
+					Spdk:        options.spdk,
 				},
 			},
 		})
@@ -111,5 +132,44 @@ func runStart(curveadm *cli.CurveAdm, options startOptions) error {
 	curveadm.WriteOutln("")
 	curveadm.WriteOutln(color.GreenString("Start target daemon on %s success ^_^"),
 		options.host)
+	return nil
+}
+
+// for http service
+func StartTgtd(curveadm *cli.CurveAdm, host, cacheSize, hugePageMem, clientConfig string) error {
+	// new ClientConfig object
+	cc, err := configure.ParseClientCfg(clientConfig)
+	if err != nil {
+		return err
+	}
+
+	defaultCacheSize := "2048MB"
+	if strings.TrimSpace(cacheSize) != "" {
+		defaultCacheSize = cacheSize
+	}
+	defaultHugePageMem := "51200"
+	if strings.TrimSpace(hugePageMem) != "" {
+		defaultHugePageMem = hugePageMem
+	}
+
+	options := startOptions{
+		host:        host,
+		cachesize:   defaultCacheSize,
+		hugepagemem: defaultHugePageMem,
+		spdk:        true,
+	}
+
+	// 2) generate map playbook
+	pb, err := genStartPlaybook(curveadm, []*configure.ClientConfig{cc}, options)
+	if err != nil {
+		return err
+	}
+
+	// 3) run playground
+	err = pb.Run()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }

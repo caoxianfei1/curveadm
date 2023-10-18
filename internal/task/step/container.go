@@ -117,6 +117,7 @@ type (
 	ContainerExec struct {
 		ContainerId *string
 		Command     string
+		Daemon      bool
 		Success     *bool
 		Out         *string
 		module.ExecOptions
@@ -281,6 +282,9 @@ func (s *ListContainers) Execute(ctx *context.Context) error {
 
 func (s *ContainerExec) Execute(ctx *context.Context) error {
 	cli := ctx.Module().DockerCli().ContainerExec(*s.ContainerId, s.Command)
+	if s.Daemon {
+		cli.AddOption("--detach")
+	}
 	out, err := cli.Execute(s.ExecOptions)
 	return PostHandle(s.Success, s.Out, out, err, errno.ERR_RUN_COMMAND_IN_CONTAINER_FAILED)
 }

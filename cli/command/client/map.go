@@ -125,6 +125,26 @@ func ParseBlockSize(blocksize string) (uint64, error) {
 	}
 	return m, nil
 }
+func ParseCacheSize(cachesize string) (uint64, error) {
+	if !strings.HasSuffix(cachesize, "MB") {
+		return 0, errno.ERR_VOLUME_CACHESIZE_MUST_END_WITH_MB_SUFFIX.
+			F("cachesize: %s", cachesize)
+	}
+	m, err := strconv.Atoi(cachesize[:strings.Index(cachesize, "MB")])
+	if err != nil || m <= 0 {
+		return 0, errno.ERR_VOLUME_BLOCKSIZE_REQUIRES_POSITIVE_INTEGER.
+			F("cache: %s", cachesize)
+	}
+	return uint64(m), nil
+}
+func ParseHugePageMem(hugePageMem string) (uint64, error) {
+	m, err := strconv.Atoi(hugePageMem)
+	if err != nil || m <= 0 {
+		return 0, errno.ERR_VOLUME_HUGEPAGEMEM_REQUIRES_POSITIVE_INTEGER.
+			F("hugepage memory: %s", hugePageMem)
+	}
+	return uint64(m), nil
+}
 func checkMapOptions(curveadm *cli.CurveAdm, options mapOptions) error {
 	if _, _, err := ParseImage(options.image); err != nil {
 		return err
