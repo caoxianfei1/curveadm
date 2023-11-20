@@ -16,6 +16,7 @@ g_cachesize=$6
 g_spdk=$7
 g_hostname=$8
 g_create_cache=$9
+g_write_policy=${10}
 
 g_tid=1
 g_sockname="/usr/local/spdk/spdk.sock"
@@ -49,6 +50,17 @@ function checkTgtExist(){
 			return 0
   		fi
 	done <<< "$output"
+
+	return 1
+}
+
+function checkVolumeReadonly() {
+    local readonly_value=$(curve_ops_tool get --fileName=$1 | grep "readonly:" | awk '{print $2}')
+    if [ "$readonly_value" == "true" ]; then
+        return 0
+    else
+        return 1
+    fi
 
 	return 1
 }
@@ -147,8 +159,19 @@ else
 		cat $g_spdk_log
 		exit 1
 	fi
+
+	writePolicy=$g_write_policy
+	if [ -z "$writePolicy" ]; then
+		checkVolumeReadonly $g_volume
+		if [ $? -eq 0 ]; then
+			writePolicy=wb
+		else 
+			writePolicy=wa
+		fi
+	fi
+
 	ocf=ocf${volume}
-	${g_rpcpath} -s ${g_sockname} bdev_ocf_create $ocf wb $memdisk $cbd_bdev > $g_spdk_log 2>&1
+	${g_rpcpath} -s ${g_sockname} bdev_ocf_create $ocf $writePolicy $memdisk $cbd_bdev > $g_spdk_log 2>&1
 	if [ $? -ne 0 ]; then
 		echo "bdev_ocf_create execution failed"
 		cat $g_spdk_log

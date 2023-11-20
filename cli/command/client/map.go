@@ -145,6 +145,14 @@ func ParseHugePageMem(hugePageMem string) (uint64, error) {
 	}
 	return uint64(m), nil
 }
+
+func ParseWritePolicy(writepolicy string) (string, error) {
+	if writepolicy != "wb" && writepolicy != "wa" && writepolicy != "" {
+		return "", errno.ERR_UNSUPPORT_WRITE_POLICY_FOR_SPDK
+	}
+	return writepolicy, nil
+}
+
 func checkMapOptions(curveadm *cli.CurveAdm, options mapOptions) error {
 	if _, _, err := ParseImage(options.image); err != nil {
 		return err

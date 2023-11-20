@@ -25,5 +25,5 @@
 package cli
 
 var (
-	Version = "0.3.0-spdk"
+	Version = "0.3.0-spdk-1115"
 )

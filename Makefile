@@ -54,7 +54,7 @@ PACKAGES := $(PWD)/cmd/curveadm/main.go
 SERVER_PACKAGES := $(PWD)/cmd/service/main.go
 
 # tar
-VERSION := "v0.3.0-spdk"
+VERSION := "v0.3.0-spdk-1115"
 
 build:
 	$(GOENV) $(GO) build -o $(OUTPUT) $(BUILD_FLAGS) $(PACKAGES)

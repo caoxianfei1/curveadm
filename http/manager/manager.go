@@ -76,6 +76,7 @@ func AddSpdkTgtHandler(r *pigeon.Request, ctx *Context) bool {
 		data.BlockSize,
 		data.Create,
 		data.CreateCache,
+		data.WritePolicy,
 	)
 
 	if err != nil {

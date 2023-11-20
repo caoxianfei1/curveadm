@@ -48,6 +48,7 @@ type TargetOption struct {
 	HugePageMem     uint64
 	CreateCacheDisk bool
 	Target          string // delete spdk target
+	WritePolicy     string
 	Spdk            bool
 }
 
@@ -101,7 +102,7 @@ func NewAddTargetTask(curveadm *cli.CurveAdm, cc *configure.ClientConfig) (*task
 	containerId := DEFAULT_TGTD_CONTAINER_NAME
 	targetScriptPath := "/curvebs/tools/sbin/add_spdk_target.sh"
 	targetScript := scripts.TARGET
-	cmd := fmt.Sprintf("bash %s %s %s %v %d %d %d %v %s %v",
+	cmd := fmt.Sprintf("bash %s %s %s %v %d %d %d %v %s %v %s",
 		targetScriptPath,
 		user,
 		volume,
@@ -112,6 +113,7 @@ func NewAddTargetTask(curveadm *cli.CurveAdm, cc *configure.ClientConfig) (*task
 		options.Spdk,
 		hc.GetHostname(),
 		options.CreateCacheDisk,
+		options.WritePolicy,
 	)
 
 	t.AddStep(&step.ListContainers{

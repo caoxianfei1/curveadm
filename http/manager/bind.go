@@ -64,6 +64,7 @@ type AddSpdkTgtRequest struct {
 	CreateCache bool   `json:"createCache"`
 	CacheSize   string `json:"cacheSize"`
 	BlockSize   string `json:"blockSize"`
+	WritePolicy string `json:"writePolicy"`
 }
 
 type DeleteSpdkTgtRequest struct {
