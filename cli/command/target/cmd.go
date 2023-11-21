@@ -42,6 +42,7 @@ func NewTargetCommand(curveadm *cli.CurveAdm) *cobra.Command {
 		NewAddCommand(curveadm),
 		NewDeleteCommand(curveadm),
 		NewListCommand(curveadm),
+		NewFlushCommand(curveadm),
 	)
 	return cmd
 }

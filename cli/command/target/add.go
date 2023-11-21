@@ -53,6 +53,7 @@ type addOptions struct {
 	spdk        bool
 	createcache bool
 	writepolicy string
+	usecache    bool
 }
 
 func checkAddOptions(curveadm *cli.CurveAdm, options addOptions) error {
@@ -96,6 +97,7 @@ func NewAddCommand(curveadm *cli.CurveAdm) *cobra.Command {
 	flags.StringVar(&options.cachesize, "cachesize", "64MB", "Specify cachesize MB")
 	flags.BoolVar(&options.spdk, "spdk", false, "create iscsi spdk target")
 	flags.BoolVar(&options.createcache, "createcache", false, "create cache disk for current target")
+	flags.BoolVar(&options.usecache, "usecache", true, "use cache disk or not")
 	flags.StringVar(&options.writepolicy, "writepolicy", "", "Specify write policy of cache, default is ''")
 	return cmd
 }
@@ -125,6 +127,7 @@ func genAddPlaybook(curveadm *cli.CurveAdm,
 					CacheSize:       cachesize,
 					CreateCacheDisk: options.createcache,
 					WritePolicy:     writepolicy,
+					Usecache:        options.usecache,
 					Spdk:            options.spdk,
 				},
 			},
@@ -157,7 +160,8 @@ func runAdd(curveadm *cli.CurveAdm, options addOptions) error {
 func AddSpdkTgt(curveadm *cli.CurveAdm,
 	image, host, size, cacheSize, blockSize string,
 	createImage, createCache bool,
-	writePolicy string) error {
+	writePolicy string,
+	useCache bool) error {
 	// new ClientConfig object
 	defaultSize, defaultBlockSize, defaultCacheSize := "10GiB", "4096B", "64MB"
 	if strings.TrimSpace(size) != "" {
@@ -183,6 +187,11 @@ func AddSpdkTgt(curveadm *cli.CurveAdm,
 		defaultWritePolicy = writePolicy
 	}
 
+	defaultUseCache := true
+	if !useCache {
+		defaultUseCache = false
+	}
+
 	options := addOptions{
 		image:       image,
 		host:        host,
@@ -192,6 +201,7 @@ func AddSpdkTgt(curveadm *cli.CurveAdm,
 		createcache: defaultCreateCache,
 		blocksize:   defaultBlockSize,
 		writepolicy: defaultWritePolicy,
+		usecache:    defaultUseCache,
 		spdk:        true,
 	}
 	err := checkAddOptions(curveadm, options)

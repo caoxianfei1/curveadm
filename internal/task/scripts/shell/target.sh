@@ -17,6 +17,7 @@ g_spdk=$7
 g_hostname=$8
 g_create_cache=$9
 g_write_policy=${10}
+g_use_cache=${11}
 
 g_tid=1
 g_sockname="/usr/local/spdk/spdk.sock"
@@ -139,7 +140,7 @@ else
 	fi
 	
 	declare memdisk
-	if [ "$g_create_cache" == "true" ]; then
+	if [ "$g_use_cache" == "true" && "$g_create_cache" == "true" ]; then
 		memdisk=Malloc${volume}
 		${g_rpcpath} -s ${g_sockname} bdev_malloc_create -b $memdisk $g_cachesize 512 > $g_spdk_log 2>&1
 		if [ $? -ne 0 ]; then
@@ -170,15 +171,23 @@ else
 		fi
 	fi
 
-	ocf=ocf${volume}
-	${g_rpcpath} -s ${g_sockname} bdev_ocf_create $ocf $writePolicy $memdisk $cbd_bdev > $g_spdk_log 2>&1
-	if [ $? -ne 0 ]; then
-		echo "bdev_ocf_create execution failed"
-		cat $g_spdk_log
-		exit 1
+	declare ocf
+	if [ "${g_use_cache}" == true ]; then
+		ocf=ocf${volume}
+		${g_rpcpath} -s ${g_sockname} bdev_ocf_create $ocf $writePolicy $memdisk $cbd_bdev > $g_spdk_log 2>&1
+		if [ $? -ne 0 ]; then
+			echo "bdev_ocf_create execution failed"
+			cat $g_spdk_log
+			exit 1
+		fi
 	fi
 
-	lun_pair=${ocf}:0
+	declare lun_pair
+	if [ "${g_use_cache}" == true ]; then
+		lun_pair=${ocf}:0
+	else
+		lun_pair=${cbd_bdev}:0
+	fi
 	${g_rpcpath} -s ${g_sockname} iscsi_create_target_node $target_name $target_name $lun_pair 1:2 1024 -d > $g_spdk_log 2>&1
 	if [ $? -ne 0 ]; then
 		echo "iscsi_create_target_node execution failed"

@@ -77,6 +77,7 @@ func AddSpdkTgtHandler(r *pigeon.Request, ctx *Context) bool {
 		data.Create,
 		data.CreateCache,
 		data.WritePolicy,
+		data.UseCache,
 	)
 
 	if err != nil {
@@ -135,6 +136,22 @@ func StopSpdkTgtdHandler(r *pigeon.Request, ctx *Context) bool {
 	if err != nil {
 		r.Logger().Error("StopSpdkTgtdHandler failed",
 			pigeon.Field("host name", data.Host),
+			pigeon.Field("error", err))
+	}
+	return core.Exit(r, err)
+}
+
+func FlushSpdkTgtHandler(r *pigeon.Request, ctx *Context) bool {
+	adm, err := cli.NewCurveAdm()
+	if err != nil {
+		return newAdmFail(r, err)
+	}
+	data := ctx.Data.(*FlushSpdkTgtRequest)
+	err = target.FlushSpdkTgt(adm, data.Target, data.Host)
+	if err != nil {
+		r.Logger().Error("FlushSpdkTgtHandler failed",
+			pigeon.Field("host name", data.Host),
+			pigeon.Field("target", data.Target),
 			pigeon.Field("error", err))
 	}
 	return core.Exit(r, err)

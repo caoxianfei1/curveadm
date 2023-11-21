@@ -413,6 +413,7 @@ var (
 	ERR_MARSHAL_TARGET_FAILED             = EC(420013, "marshal Target failed when list targets")
 	ERR_DISCOVER_OUTPUT_FORAMT_FAILED     = EC(420014, "iscsiadm discovery output format is incorrect")
 	ERR_UNSUPPORT_WRITE_POLICY_FOR_SPDK   = EC(420015, "unsupport write policy for spdk cache")
+	ERR_FLUSH_TARGET_FAILED               = EC(420016, "flush spdk target failed")
 
 	// 430: common (curvefs client)
 	ERR_FS_PATH_ALREADY_MOUNTED  = EC(430000, "path already mounted")

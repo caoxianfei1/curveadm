@@ -95,6 +95,7 @@ const (
 	ADD_TARGET
 	DELETE_TARGET
 	LIST_TARGETS
+	FLUSH_TARGET
 
 	// fs
 	CHECK_CLIENT_S3
@@ -262,6 +263,8 @@ func (p *Playbook) createTasks(step *PlaybookStep) (*tasks.Tasks, error) {
 			t, err = bs.NewDeleteTargetTask(curveadm, nil)
 		case LIST_TARGETS:
 			t, err = bs.NewListTargetsTask(curveadm, nil)
+		case FLUSH_TARGET:
+			t, err = bs.NewFlushTargetTask(curveadm, nil)
 
 		// fs
 		case CHECK_CLIENT_S3:

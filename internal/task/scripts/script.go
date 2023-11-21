@@ -70,4 +70,6 @@ var (
 	SET_SPDK string
 	//go:embed shell/delete_spdk.sh
 	DELETE_SPDK string
+	//go:embed shell/flush_spdk.sh
+	FLUSH_SPDK string
 )

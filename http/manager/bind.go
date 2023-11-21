@@ -65,6 +65,7 @@ type AddSpdkTgtRequest struct {
 	CacheSize   string `json:"cacheSize"`
 	BlockSize   string `json:"blockSize"`
 	WritePolicy string `json:"writePolicy"`
+	UseCache    bool   `json:"useCache"`
 }
 
 type DeleteSpdkTgtRequest struct {
@@ -78,6 +79,11 @@ type ListSpdkTgtRequest struct {
 
 type StopSpdkTgtdRequest struct {
 	Host string `json:"host"`
+}
+
+type FlushSpdkTgtRequest struct {
+	Target string `json:"target"`
+	Host   string `json:"host"`
 }
 
 var requests = []Request{
@@ -188,5 +194,11 @@ var requests = []Request{
 		"target.stop",
 		StopSpdkTgtdRequest{},
 		StopSpdkTgtdHandler,
+	},
+	{
+		"POST",
+		"target.flush",
+		FlushSpdkTgtRequest{},
+		FlushSpdkTgtHandler,
 	},
 }
