@@ -41,7 +41,7 @@ import (
 
 const (
 	TEMP_DIR       = "/tmp"
-	REGEX_KV_SPLIT = "^(([^%s]+)%s\\s*)([^\\s#]*)" // key: mu[2] value: mu[3]
+	REGEX_KV_SPLIT = "^(([^%s]+)%s\\s*)([^#]*?)(\\s*(?:#.*))" // key: mu[2] value: mu[3]
 )
 
 type (
