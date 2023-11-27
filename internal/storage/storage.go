@@ -457,7 +457,7 @@ func (s *Storage) getTargets(query string, args ...interface{}) ([]Target, error
 	targets := []Target{}
 	var target Target
 	for result.Next() {
-		err = result.Scan(&target.Id, &target.Target, &target.Storage, &target.PortalInfo)
+		err = result.Scan(&target.Id, &target.Target, &target.Storage, &target.PortalInfo, &target.Cache)
 		if err != nil {
 			return nil, err
 		}
@@ -467,8 +467,8 @@ func (s *Storage) getTargets(query string, args ...interface{}) ([]Target, error
 	return targets, nil
 }
 
-func (s *Storage) InsertTarget(id, target, volume, portalInfo string) error {
-	return s.write(InsertTarget, id, target, volume, portalInfo)
+func (s *Storage) InsertTarget(id, target, volume, portalInfo, cache string) error {
+	return s.write(InsertTarget, id, target, volume, portalInfo, cache)
 }
 
 func (s *Storage) DeleteTarget(target string) error {

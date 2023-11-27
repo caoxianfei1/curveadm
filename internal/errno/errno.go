@@ -414,6 +414,7 @@ var (
 	ERR_DISCOVER_OUTPUT_FORAMT_FAILED     = EC(420014, "iscsiadm discovery output format is incorrect")
 	ERR_UNSUPPORT_WRITE_POLICY_FOR_SPDK   = EC(420015, "unsupport write policy for spdk cache")
 	ERR_FLUSH_TARGET_FAILED               = EC(420016, "flush spdk target failed")
+	ERR_TARGET_NOT_FOUNT_IN_DATABASE      = EC(420017, "iscsi target is not found in database")
 
 	// 430: common (curvefs client)
 	ERR_FS_PATH_ALREADY_MOUNTED  = EC(430000, "path already mounted")

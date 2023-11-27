@@ -88,15 +88,34 @@ func NewDeleteTargetTask(curveadm *cli.CurveAdm, cc *client.ClientConfig) (*task
 		return nil, err
 	}
 
+	targets, err := curveadm.Storage().ListTargets()
+	if err != nil {
+		return nil, errno.ERR_SELECT_TARGET_FAILED.E(err)
+	}
+
+	var cache string
+	var isExist bool
+	for _, t := range targets {
+		if t.Target == options.Target {
+			cache = t.Cache
+			isExist = true
+			break
+		}
+	}
+	if !isExist {
+		return nil, errno.ERR_TARGET_NOT_FOUNT_IN_DATABASE.F("target is %s", options.Target)
+	}
+
 	subname := fmt.Sprintf("hostname=%s tid=%s", hc.GetHostname(), options.Tid)
 	t := task.NewTask("Delete Target", subname, hc.GetSSHConfig())
 
 	targetScript := scripts.DELETE_SPDK
 	targetScriptPath := "/curvebs/tools/sbin/delete_spdk_target.sh"
-	cmd := fmt.Sprintf("bash %s %s %s",
+	cmd := fmt.Sprintf("bash %s %s %s %s",
 		targetScriptPath,
 		options.Target,
 		hc.GetHostname(),
+		cache,
 	)
 	// add step
 	var output string
@@ -127,12 +146,12 @@ func NewDeleteTargetTask(curveadm *cli.CurveAdm, cc *client.ClientConfig) (*task
 			Out:         &output,
 			ExecOptions: curveadm.ExecOptions(),
 		})
+		t.AddStep(&step.Lambda{
+			Lambda: checkDeleteTarget(&success, &output),
+		})
 		t.AddStep(&step2DeleteTarget{
 			curveadm: curveadm,
 			options:  options,
-		})
-		t.AddStep(&step.Lambda{
-			Lambda: checkDeleteTarget(&success, &output),
 		})
 	} else {
 		t.AddStep(&step.ContainerExec{

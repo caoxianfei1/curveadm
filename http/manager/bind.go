@@ -57,15 +57,15 @@ type StartSpdkTgtdRequest struct {
 }
 
 type AddSpdkTgtRequest struct {
-	Image       string `json:"image"`
-	Host        string `json:"host"`
-	Create      bool   `json:"create"` // create volume or not
-	Size        string `json:"size"`   // volume size
-	CreateCache bool   `json:"createCache"`
-	CacheSize   string `json:"cacheSize"`
-	BlockSize   string `json:"blockSize"`
-	WritePolicy string `json:"writePolicy"`
-	UseCache    bool   `json:"useCache"`
+	Image        string `json:"image"`
+	Host         string `json:"host"`
+	Create       bool   `json:"create"` // create volume or not
+	Size         string `json:"size"`   // volume size
+	CreateCache  bool   `json:"createCache"`
+	CacheSize    string `json:"cacheSize"`
+	BlockSize    string `json:"blockSize"`
+	WritePolicy  string `json:"writePolicy"`
+	DisableCache bool   `json:"disableCache"`
 }
 
 type DeleteSpdkTgtRequest struct {

@@ -36,6 +36,16 @@ import (
 	"github.com/opencurve/curveadm/internal/task/task"
 )
 
+const (
+	TARGET_PREFIX      = "iqn.2016-06.io.spdk:"
+	TGTD_PORT          = "3260"
+	MALLOC             = "Malloc"
+	GLOBAL_CACHE_NAME  = "Malloc_host_"
+	GLOBAL             = "[global]"
+	LOCAL_CACHE_PREFIX = "Malloc"
+	LOCAL              = "[local]"
+)
+
 type TargetOption struct {
 	Host            string
 	User            string
@@ -49,7 +59,7 @@ type TargetOption struct {
 	CreateCacheDisk bool
 	Target          string // delete spdk target
 	WritePolicy     string
-	Usecache        bool
+	DisableCache    bool
 	Spdk            bool
 }
 
@@ -61,11 +71,21 @@ type step2InsertTarget struct {
 func (s *step2InsertTarget) Execute(ctx *context.Context) error {
 	curveadm := s.curveadm
 	options := s.options
-	portalInfo := options.Host + ":3260"
+	portalInfo := fmt.Sprint(options.Host, ":", TGTD_PORT)
+	volumeConv := strings.ReplaceAll(options.Volume, "/", "_")                              // volume: _test1_test2, cache: Malloc_test1_test2
+	taregtNameSuffix := strings.TrimLeft(strings.ReplaceAll(options.Volume, "/", "-"), "-") // target: test1-test2
+	target := fmt.Sprintf("%s%s", TARGET_PREFIX, taregtNameSuffix)
 	volumeId := curveadm.GetVolumeId(options.Host, options.User, options.Volume)
-	target := fmt.Sprintf("%s%s", "iqn.2016-06.io.spdk:", strings.TrimLeft(strings.ReplaceAll(options.Volume, "/", "-"), "-"))
 
-	err := curveadm.Storage().InsertTarget(volumeId, target, options.Volume, portalInfo)
+	var cache string
+	if !options.DisableCache {
+		cache = fmt.Sprint(GLOBAL_CACHE_NAME, GLOBAL)
+		if options.CreateCacheDisk {
+			cache = fmt.Sprint(MALLOC, volumeConv, LOCAL)
+		}
+	}
+
+	err := curveadm.Storage().InsertTarget(volumeId, target, options.Volume, portalInfo, cache)
 	if err != nil {
 		return errno.ERR_INSERT_TARGET_FAILED.E(err)
 	}
@@ -115,7 +135,7 @@ func NewAddTargetTask(curveadm *cli.CurveAdm, cc *configure.ClientConfig) (*task
 		hc.GetHostname(),
 		options.CreateCacheDisk,
 		options.WritePolicy,
-		options.Usecache,
+		options.DisableCache,
 	)
 
 	t.AddStep(&step.ListContainers{

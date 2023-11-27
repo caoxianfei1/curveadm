@@ -9,6 +9,7 @@
 # g_target=iqn.2016-06.io.spdk:test2
 g_target=$1
 g_hostname=$2
+g_cache=$3
 
 g_sockname="/usr/local/spdk/spdk.sock"
 g_rpcpath="/usr/local/spdk/scripts/rpc.py"
@@ -54,12 +55,20 @@ if [ $? -ne 0 ]; then
 	exit 1
 fi
 
-ocf=ocf${volume}
-${g_rpcpath} -s ${g_sockname} bdev_ocf_delete $ocf > $g_spdk_log 2>&1
-if [ $? -ne 0 ]; then
-	echo "bdev_ocf_delete execution failed"
-	cat $g_spdk_log
-	exit 1
+# _test1(local) -> local
+if [ !-z "${g_cache}" ]; then
+	if [[ "${g_cache}" =~ \[(\w+)\] ]]; then
+		global_or_local="${BASH_REMATCH[1]}"
+		if [ "${global_or_local}" == "local" ]; then
+			ocf=ocf${volume}
+			${g_rpcpath} -s ${g_sockname} bdev_ocf_delete $ocf > $g_spdk_log 2>&1
+			if [ $? -ne 0 ]; then
+				echo "bdev_ocf_delete execution failed"
+				cat $g_spdk_log
+				exit 1
+			fi
+		fi
+	fi
 fi
 
 cbd_bdev=cbd${volume}
@@ -70,6 +79,7 @@ if [ $? -ne 0 ]; then
 	exit 1
 fi
 
+# ignore error
 memdisk=Malloc${volume}
 ${g_rpcpath} -s ${g_sockname} bdev_malloc_delete $memdisk > $g_spdk_log 2>&1
 

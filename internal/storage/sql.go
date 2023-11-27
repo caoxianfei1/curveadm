@@ -330,20 +330,23 @@ type Target struct {
 	Target     string
 	Storage    string
 	PortalInfo string
+	Cache      string // name(global) or name(local)
 }
 
 var (
-	// table: client
+	// table: targets
 	CreateTargetsTable = `
 		CREATE TABLE IF NOT EXISTS targets (
 			id TEXT PRIMARY KEY,
 			target TEXT NOT NULL,
 			storage TEXT NOT NULL,
-			portal_info TEXT NOT NULL
+			portal_info TEXT NOT NULL,
+			cache TEXT NOT NULL
 		)
 	`
 	// insert target
-	InsertTarget = `INSERT INTO targets(id, target, storage, portal_info) VALUES(?, ?, ?, ?)`
+	InsertTarget = `INSERT INTO targets(id, target, storage, portal_info, cache) 
+						VALUES(?, ?, ?, ?, ?)`
 
 	// select targets
 	SelectTargets = `SELECT * FROM targets`
