@@ -51,7 +51,7 @@ var (
 
 type addOptions struct {
 	name        string
-	descriotion string
+	description string
 	filename    string
 }
 
@@ -71,7 +71,7 @@ func NewAddCommand(curveadm *cli.CurveAdm) *cobra.Command {
 	}
 
 	flags := cmd.Flags()
-	flags.StringVarP(&options.descriotion, "description", "m", "", "Description for cluster")
+	flags.StringVarP(&options.description, "description", "m", "", "Description for cluster")
 	flags.StringVarP(&options.filename, "topology", "f", "", "Specify the path of topology file")
 
 	return cmd
@@ -163,7 +163,7 @@ func runAdd(curveadm *cli.CurveAdm, options addOptions) error {
 
 	// 4) insert cluster (with topology) into database
 	uuid := uuid.NewString()
-	err = storage.InsertCluster(name, uuid, options.descriotion, data)
+	err = storage.InsertCluster(name, uuid, options.description, data)
 	if err != nil {
 		return errno.ERR_INSERT_CLUSTER_FAILED.E(err)
 	}
